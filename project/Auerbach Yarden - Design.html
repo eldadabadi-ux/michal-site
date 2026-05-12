@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>אורבך · ירדן — Design</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500;700&family=Assistant:wght@300;400;500;600;700&family=Heebo:wght@300;400;500;700&family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; padding: 0; background: #f0eee9; }
+    body, input, textarea, button { font-family: "Heebo", "Inter", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="screens/home.jsx"></script>
+  <script type="text/babel" src="screens/practice.jsx"></script>
+  <script type="text/babel" src="screens/knowledge.jsx"></script>
+  <script type="text/babel" src="screens/admin.jsx"></script>
+  <script type="text/babel" src="screens/design-system.jsx"></script>
+
+  <script type="text/babel">
+    const ART_W = 1440;
+
+    function Frame({ children, height }) {
+      // Wrapper ensures RTL inheritance and a clean white background inside the artboard
+      return (
+        <div dir="rtl" style={{ width: ART_W, height, overflow: 'hidden', background: '#faf7f1' }}>
+          {children}
+        </div>
+      );
+    }
+
+    function App() {
+      return (
+        <DesignCanvas>
+          <DCSection id="public" title="האתר הציבורי" subtitle="Public site — RTL, editorial, bento IA">
+            <DCArtboard id="home"      label="01 · Homepage"        width={ART_W} height={3380}>
+              <Frame height={3380}><HomeScreen /></Frame>
+            </DCArtboard>
+            <DCArtboard id="practice"  label="02 · Practice — M&A"  width={ART_W} height={1840}>
+              <Frame height={1840}><PracticeScreen /></Frame>
+            </DCArtboard>
+            <DCArtboard id="team"      label="03 · Attorney Bio"    width={ART_W} height={1480}>
+              <Frame height={1480}><TeamScreen /></Frame>
+            </DCArtboard>
+            <DCArtboard id="knowledge" label="04 · Knowledge Card"  width={ART_W} height={2100}>
+              <Frame height={2100}><KnowledgeScreen /></Frame>
+            </DCArtboard>
+            <DCArtboard id="contact"   label="05 · Contact"         width={ART_W} height={1380}>
+              <Frame height={1380}><ContactScreen /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="admin" title="ממשק הניהול" subtitle="Admin console — content, AI Knowledge Base, SEO/AI Hub">
+            <DCArtboard id="dash"  label="06 · Admin · Dashboard"           width={ART_W} height={980}>
+              <Frame height={980}><AdminDashboard /></Frame>
+            </DCArtboard>
+            <DCArtboard id="aikb"  label="07 · Admin · AI Knowledge Base"   width={ART_W} height={1180}>
+              <Frame height={1180}><AdminAIKB /></Frame>
+            </DCArtboard>
+            <DCArtboard id="seo"   label="08 · Admin · SEO & AI Hub"        width={ART_W} height={1340}>
+              <Frame height={1340}><AdminSEO /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="system" title="מערכת העיצוב" subtitle="Tokens, type pairing, components">
+            <DCArtboard id="tokens" label="09 · Design System"  width={ART_W} height={1840}>
+              <Frame height={1840}><DesignSystemScreen /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCPostIt x={40} y={40} color="warm" width={300}>
+            <strong>Auerbach · Yarden</strong><br />
+            High-End Authority · RTL editorial · Frank Ruhl Libre + Heebo (Hebrew siblings of Playfair + Inter). Measured gold, deep charcoal, generous whitespace. Bento IA designed for AI scrapers.
+          </DCPostIt>
+        </DesignCanvas>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
