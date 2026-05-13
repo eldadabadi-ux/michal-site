@@ -1,0 +1,53 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Assistant", "Heebo", "Open Sans Hebrew", system-ui, sans-serif;
+  background: #faf5ea;
+}
+
+input, textarea, button {
+  font-family: inherit;
+}
+
+/* ── Accessibility widget classes ───────────────────────────────────────────── */
+
+html.high-contrast {
+  filter: contrast(1.5);
+}
+
+html.inverted {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+html.readable-font,
+html.readable-font * {
+  font-family: Arial, Verdana, sans-serif !important;
+}
+
+html.highlight-links a {
+  text-decoration: underline !important;
+  outline: 2px solid currentColor;
+}
+
+html.no-animations *,
+html.no-animations *::before,
+html.no-animations *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+html.grayscale {
+  filter: grayscale(1);
+}
+
+html.big-cursor,
+html.big-cursor * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M5 3l19 13-8 1-4 9z' fill='%23000' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") 5 3, auto !important;
+}
