@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700&family=Cinzel:wght@400;700&family=Montserrat:wght@400;600&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Design tokens — Geller-Abadi navy brand */
+  --ink:        #0B2F57;
+  --ink-soft:   #4E6B8A;
+  --ink-mute:   #8B9BB5;
+  --paper:      #ffffff;
+  --paper-cool: #f4f5f8;
+  --paper-edge: #D9DDE3;
+  --gold:       #C9B37E;
+  --gold-deep:  #A8904A;
+  --gold-soft:  #E2CFA0;
+  --gold-faint: rgba(201,179,126,0.07);
+  --rule:       rgba(11,47,87,0.12);
+  --rule-soft:  rgba(11,47,87,0.06);
+  --shadow-sm:  0 1px 3px rgba(11,47,87,0.08), 0 0 0 1px rgba(11,47,87,0.05);
+  --shadow-md:  0 8px 30px rgba(11,47,87,0.10), 0 0 0 1px rgba(11,47,87,0.05);
+  --serif:      'Cinzel', 'Assistant', serif;
+  --sans:       'Assistant', sans-serif;
+  --mono:       'Assistant', sans-serif;
+
+  /* Shadcn compatibility */
+  --background: #ffffff;
+  --foreground: #0B2F57;
+  --radius: 0;
+  --border: rgba(11,47,87,0.12);
+}
+
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html {
+    font-size: 16px;
+    direction: ltr;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 1.65rem;
+    line-height: 1.8;
+    overflow-x: hidden;
+  }
+  #rtl-root {
+    direction: rtl;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--serif);
+    font-weight: 700;
+  }
+  p { font-size: 1.1em; line-height: 1.85; }
+}
+
+/* Eyebrow — mono uppercase label */
+.eyebrow {
+  font-family: var(--sans);
+  font-size: 16px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* Gold rule divider */
+.gold-rule {
+  display: inline-block;
+  background: var(--gold);
+  height: 1px;
+}
+
+/* Accessibility classes */
+.a11y-underline-links a { text-decoration: underline !important; }
+.a11y-keyboard-focus *:focus { outline: 3px solid var(--gold) !important; outline-offset: 2px !important; }
+.a11y-grayscale { filter: grayscale(1); }
+.a11y-monochrome { filter: grayscale(1) contrast(2); }
+.a11y-readable-font, .a11y-readable-font * { font-family: Arial, Helvetica, sans-serif !important; letter-spacing: 0.03em !important; }
+.a11y-reset-colors { filter: none !important; }
+
+/* Font scale and page zoom are applied via JS (zoom on #rtl-root) in AccessibilityWidget */
+
+/* Mobile: reduce main padding-top to match smaller header */
+@media (max-width: 1023px) {
+  .site-main { padding-top: 82px !important; }
+}
