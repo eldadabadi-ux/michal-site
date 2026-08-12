@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSiteSettings } from '@/lib/site-settings'
 import { getArticles } from '@/lib/articles'
+import { siteUrl } from '@/lib/site-url'
 
 /**
  * llms.txt — the site's summary for AI crawlers.
@@ -11,10 +12,6 @@ import { getArticles } from '@/lib/articles'
  * the office does not work in.
  */
 export const dynamic = 'force-dynamic'
-
-function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://michal-website.vercel.app').replace(/\/$/, '')
-}
 
 /** Collapses the multi-line/rich fields the CMS allows into one clean line. */
 function oneLine(s: string | undefined): string {

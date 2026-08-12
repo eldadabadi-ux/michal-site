@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { getArticles } from '@/lib/articles'
+import { siteUrl } from '@/lib/site-url'
 
 /**
  * Built from NEXT_PUBLIC_SITE_URL so it follows the site to its own domain
@@ -7,11 +8,6 @@ import { getArticles } from '@/lib/articles'
  * query the blog pages use, so an unpublished draft never leaks into the map.
  */
 export const dynamic = 'force-dynamic'
-
-function siteUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://michal-website.vercel.app'
-  return raw.replace(/\/$/, '') // a trailing slash would produce '//blog' below
-}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl()

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getSiteSettings } from '@/lib/site-settings'
 import { getArticles } from '@/lib/articles'
+import { siteUrl } from '@/lib/site-url'
 import HeroSection from '@/components/home/HeroSection'
 import AboutSection from '@/components/home/AboutSection'
 import ServicesSection from '@/components/home/ServicesSection'
@@ -20,7 +21,7 @@ export default async function HomePage() {
     '@context': 'https://schema.org',
     '@type': 'LegalService',
     name: 'משרד עו"ד מיכל גלר-עבאדי',
-    url: process.env.NEXT_PUBLIC_SITE_URL,
+    url: siteUrl(),
     telephone: settings.contact_phone,
     email: settings.contact_email,
     address: {

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { siteUrl } from '@/lib/site-url'
 
 /**
  * The admin panel and the API are kept out of the index. Note that while the
@@ -9,7 +10,7 @@ import type { MetadataRoute } from 'next'
 export const dynamic = 'force-dynamic'
 
 export default function robots(): MetadataRoute.Robots {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://michal-website.vercel.app').replace(/\/$/, '')
+  const base = siteUrl()
 
   return {
     rules: {
