@@ -2,10 +2,18 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { updateSession } from './lib/supabase/middleware'
 
-// Maintenance gate: while true, every public route returns a 503 "under
-// upgrade" page, while /admin and /api/admin stay reachable so content
-// editing can continue. Flip to false and redeploy to bring the site back.
-const MAINTENANCE_MODE = true
+// Maintenance gate: while on, the public site returns a 503 "under upgrade"
+// page to visitors, while /admin and /api/admin stay reachable so content
+// editing can continue and signed-in admins can preview their edits live.
+//
+// Controlled by the MAINTENANCE_MODE env var ('off' brings the public site
+// back, 'on' takes it down) so it can be flipped from the Vercel dashboard
+// without a code change. Unset falls back to the compiled-in default below.
+const MAINTENANCE_DEFAULT = true
+const MAINTENANCE_MODE =
+  process.env.MAINTENANCE_MODE === 'off' ? false :
+  process.env.MAINTENANCE_MODE === 'on'  ? true  :
+  MAINTENANCE_DEFAULT
 
 const MAINTENANCE_HTML = `<!doctype html>
 <html lang="he" dir="rtl">
@@ -61,6 +69,26 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith('/api/admin')) return NextResponse.next()
 
   if (MAINTENANCE_MODE) {
+    // A signed-in admin sees the real site instead of the gate, so edits made
+    // in the panel can be previewed exactly as visitors will see them. Only
+    // requests that actually carry a Supabase session cookie pay for the
+    // verification — anonymous visitors fall straight through to the 503.
+    const hasSessionCookie = request.cookies
+      .getAll()
+      .some(c => c.name.startsWith('sb-') && c.name.includes('auth-token'))
+
+    if (hasSessionCookie) {
+      const { user, aal } = await updateSession(request)
+      if (user && aal === 'aal2') {
+        // Flag the request so the site layout can show a "hidden from the
+        // public" banner — otherwise the preview is indistinguishable from
+        // the site being live again.
+        const headers = new Headers(request.headers)
+        headers.set('x-admin-preview', '1')
+        return NextResponse.next({ request: { headers } })
+      }
+    }
+
     return new Response(MAINTENANCE_HTML, {
       status: 503,
       headers: {
