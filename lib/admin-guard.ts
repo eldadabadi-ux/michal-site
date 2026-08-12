@@ -1,7 +1,7 @@
 /**
  * lib/admin-guard.ts — server-side authorization for /api/admin/* routes.
  *
- * Defense in depth: even though middleware already requires an authenticated
+ * Defense in depth: even though the proxy already requires an authenticated
  * Supabase session, every admin data route re-verifies here:
  *   1. a valid Supabase session (anon SSR client),
  *   2. an admin role (read via service-role key — robust regardless of profiles RLS),
@@ -13,7 +13,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getServerSupabase } from './supabase/server'
 
-export async function requireAdmin() {
+async function authenticateAdmin() {
   const supabase = await getServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -32,11 +32,29 @@ export async function requireAdmin() {
     return { ok: false as const, res: NextResponse.json({ error: 'forbidden' }, { status: 403 }) }
   }
 
+  return { ok: true as const, user, supabase }
+}
+
+export async function requireAdmin() {
+  const auth = await authenticateAdmin()
+  if (!auth.ok) return auth
+
   // MFA (AAL2) enforcement.
-  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  const { data: aal } = await auth.supabase.auth.mfa.getAuthenticatorAssuranceLevel()
   if (aal?.currentLevel !== 'aal2') {
     return { ok: false as const, res: NextResponse.json({ error: 'mfa_required' }, { status: 403 }) }
   }
 
-  return { ok: true as const, user }
+  return { ok: true as const, user: auth.user, supabase: auth.supabase }
+}
+
+/**
+ * Identity + role checks only, tolerating an aal1 session.
+ *
+ * ONLY for the MFA enrolment routes, which by definition run before the
+ * session can reach aal2. It exposes no admin data — never use it for a route
+ * that does.
+ */
+export async function requireAdminPreMfa() {
+  return authenticateAdmin()
 }

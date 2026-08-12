@@ -1,85 +1,104 @@
 'use client'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { getBrowserSupabase } from '../../../lib/supabase/client'
 
 /**
  * /admin/mfa — one-time TOTP enrolment for the admin panel.
  *
- * Reachable only with a signed-in (aal1) session; the proxy pins any
- * non-aal2 admin session here. Verifying the first code upgrades the session
- * to aal2, which is what lib/admin-guard.ts requires for every admin API route.
+ * Reachable only with a signed-in (aal1) session; the proxy pins any non-aal2
+ * admin session here. All Supabase work happens in /api/admin/mfa/* so this
+ * page needs no browser-side session. Every failure path ends in a visible
+ * message — the screen must never sit on the loading state.
  */
+/** POST that always settles: a stalled network aborts instead of spinning. */
+async function postJson(url: string, body?: unknown, timeoutMs = 15000) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    return await fetch(url, {
+      method: 'POST',
+      signal: ctrl.signal,
+      ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
+    })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export default function AdminMfa() {
   const [qr, setQr] = useState('')
   const [secret, setSecret] = useState('')
   const [factorId, setFactorId] = useState('')
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
+  const [fatal, setFatal] = useState('')
   const [loading, setLoading] = useState(false)
   const [preparing, setPreparing] = useState(true)
   const started = useRef(false)
 
-  useEffect(() => {
-    if (started.current) return // React StrictMode mounts effects twice in dev
-    started.current = true
+  async function prepare() {
+    setPreparing(true)
+    setFatal('')
+    setError('')
+    try {
+      const res = await postJson('/api/admin/mfa/enroll')
 
-    ;(async () => {
-      const supabase = getBrowserSupabase()
-      const { data: factors, error: listErr } = await supabase.auth.mfa.listFactors()
-      if (listErr) {
-        setError('לא הצלחנו לטעון את פרטי האימות. רענני את העמוד.')
-        setPreparing(false)
+      if (res.status === 401) {
+        window.location.href = '/admin/login'
         return
       }
 
-      // Already fully set up — nothing to enrol, just finish signing in.
-      if ((factors?.totp || []).some(f => f.status === 'verified')) {
+      const data = await res.json().catch(() => ({}))
+
+      if (data.alreadyEnrolled) {
         window.location.href = '/admin/content'
         return
       }
-
-      // Drop half-finished factors from an abandoned attempt, then start clean.
-      for (const f of factors?.totp || []) {
-        await supabase.auth.mfa.unenroll({ factorId: f.id })
-      }
-
-      const { data, error: enrollErr } = await supabase.auth.mfa.enroll({ factorType: 'totp' })
-      if (enrollErr || !data) {
-        setError('לא הצלחנו ליצור קוד אימות. רענני את העמוד ונסי שוב.')
+      if (!res.ok || !data.qr) {
+        setFatal('לא הצלחנו ליצור את קוד האימות. נסי שוב, ואם זה חוזר — פני לאלדד.')
         setPreparing(false)
         return
       }
 
-      setFactorId(data.id)
-      setQr(data.totp.qr_code)
-      setSecret(data.totp.secret)
+      setFactorId(data.factorId)
+      setQr(data.qr)
+      setSecret(data.secret)
+    } catch {
+      setFatal('אין חיבור לשרת. בדקי את החיבור לאינטרנט ונסי שוב.')
+    } finally {
       setPreparing(false)
-    })()
+    }
+  }
+
+  useEffect(() => {
+    if (started.current) return // React StrictMode mounts effects twice in dev
+    started.current = true
+    prepare()
   }, [])
 
   async function handleVerify(e: FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
+    try {
+      const res = await postJson('/api/admin/mfa/verify', { factorId, code })
+      const data = await res.json().catch(() => ({}))
 
-    const supabase = getBrowserSupabase()
-    const { data: ch, error: chErr } = await supabase.auth.mfa.challenge({ factorId })
-    if (chErr || !ch) {
-      setError('שגיאה באימות. נסי שוב.')
-      setLoading(false)
-      return
-    }
-
-    const { error: vErr } = await supabase.auth.mfa.verify({ factorId, challengeId: ch.id, code })
-    setLoading(false)
-    if (vErr) {
-      setError('הקוד שגוי או פג תוקף. הזיני את הקוד המעודכן מהאפליקציה.')
+      if (res.ok && data.ok) {
+        // Full reload so the proxy re-reads the upgraded (aal2) session cookie.
+        window.location.href = '/admin/content'
+        return
+      }
+      if (data.error === 'invalid_code') {
+        setError('הקוד שגוי או פג תוקף. הזיני את הקוד המעודכן מהאפליקציה.')
+      } else {
+        setError('האימות נכשל. נסי שוב.')
+      }
       setCode('')
-      return
+    } catch {
+      setError('אין חיבור לשרת. נסי שוב.')
+    } finally {
+      setLoading(false)
     }
-
-    // Full reload so the proxy re-reads the upgraded (aal2) session cookie.
-    window.location.href = '/admin/content'
   }
 
   const card: React.CSSProperties = {
@@ -88,6 +107,11 @@ export default function AdminMfa() {
   }
   const step: React.CSSProperties = {
     fontSize: 17, color: '#577066', lineHeight: 1.7, marginBottom: 18,
+  }
+  const btn: React.CSSProperties = {
+    marginTop: 22, width: '100%', padding: '17px',
+    color: '#fff', border: 'none', borderRadius: 6,
+    fontSize: 19, fontWeight: 600, fontFamily: 'Heebo, sans-serif',
   }
 
   return (
@@ -109,8 +133,13 @@ export default function AdminMfa() {
 
         {preparing ? (
           <div style={{ ...step, textAlign: 'center' }}>רגע, מכינים את קוד האימות…</div>
-        ) : !qr ? (
-          <div style={{ fontSize: 17, color: '#c0392b', textAlign: 'center' }}>{error}</div>
+        ) : fatal ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 17, color: '#c0392b', lineHeight: 1.7 }}>{fatal}</div>
+            <button onClick={prepare} style={{ ...btn, background: '#4d7c60', cursor: 'pointer' }}>
+              נסי שוב
+            </button>
+          </div>
         ) : (
           <>
             <div style={step}>
@@ -161,12 +190,9 @@ export default function AdminMfa() {
                 type="submit"
                 disabled={loading || code.length !== 6}
                 style={{
-                  marginTop: 22, width: '100%', padding: '17px',
+                  ...btn,
                   background: loading || code.length !== 6 ? '#8aaa98' : '#4d7c60',
-                  color: '#fff', border: 'none', borderRadius: 6,
-                  fontSize: 19, fontWeight: 600,
                   cursor: loading || code.length !== 6 ? 'default' : 'pointer',
-                  fontFamily: 'Heebo, sans-serif',
                 }}
               >
                 {loading ? 'מאמת…' : 'סיום והמשך לניהול →'}
