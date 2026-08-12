@@ -281,8 +281,9 @@ function AdminInner({ children }: { children: React.ReactNode }) {
 /* ── Root export ── */
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  // Login page gets no sidebar/layout — just the raw page
-  if (pathname === '/admin/login') return <>{children}</>
+  // Login and MFA are full-screen gates reached before the panel is usable —
+  // they get no sidebar chrome, just the raw page.
+  if (pathname === '/admin/login' || pathname === '/admin/mfa') return <>{children}</>
   return (
     <SaveProvider>
       <AdminInner>{children}</AdminInner>

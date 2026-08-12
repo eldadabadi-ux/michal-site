@@ -25,6 +25,7 @@ async function postJson(url: string, body?: unknown, timeoutMs = 15000) {
 }
 
 export default function AdminMfa() {
+  const [mode, setMode] = useState<'enroll' | 'verify'>('enroll')
   const [qr, setQr] = useState('')
   const [secret, setSecret] = useState('')
   const [factorId, setFactorId] = useState('')
@@ -49,16 +50,19 @@ export default function AdminMfa() {
 
       const data = await res.json().catch(() => ({}))
 
-      if (data.alreadyEnrolled) {
-        window.location.href = '/admin/content'
+      // Already enrolled — ask for a code instead of bouncing to /admin/content,
+      // which the proxy would send straight back here (redirect loop).
+      if (data.mode === 'verify' && data.factorId) {
+        setMode('verify')
+        setFactorId(data.factorId)
         return
       }
       if (!res.ok || !data.qr) {
         setFatal('לא הצלחנו ליצור את קוד האימות. נסי שוב, ואם זה חוזר — פני לאלדד.')
-        setPreparing(false)
         return
       }
 
+      setMode('enroll')
       setFactorId(data.factorId)
       setQr(data.qr)
       setSecret(data.secret)
@@ -127,8 +131,12 @@ export default function AdminMfa() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 19px', fontSize: 31,
           }}>🔐</div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#35423a' }}>הגדרת אימות דו־שלבי</div>
-          <div style={{ fontSize: 17, color: '#8aaa98', marginTop: 4 }}>הגדרה חד־פעמית לאבטחת פאנל הניהול</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#35423a' }}>
+            {mode === 'verify' ? 'אימות דו־שלבי' : 'הגדרת אימות דו־שלבי'}
+          </div>
+          <div style={{ fontSize: 17, color: '#8aaa98', marginTop: 4 }}>
+            {mode === 'verify' ? 'הזיני את הקוד מאפליקציית האימות' : 'הגדרה חד־פעמית לאבטחת פאנל הניהול'}
+          </div>
         </div>
 
         {preparing ? (
@@ -142,35 +150,43 @@ export default function AdminMfa() {
           </div>
         ) : (
           <>
-            <div style={step}>
-              <b style={{ color: '#35423a' }}>שלב 1:</b> התקיני בטלפון אפליקציית אימות —
-              למשל <b>Google Authenticator</b> (חינמית, זמינה ב־App Store וב־Google Play).
-            </div>
+            {mode === 'enroll' && (
+              <>
+                <div style={step}>
+                  <b style={{ color: '#35423a' }}>שלב 1:</b> התקיני בטלפון אפליקציית אימות —
+                  למשל <b>Google Authenticator</b> (חינמית, זמינה ב־App Store וב־Google Play).
+                </div>
 
-            <div style={step}>
-              <b style={{ color: '#35423a' }}>שלב 2:</b> פתחי את האפליקציה, לחצי על ״+״ ובחרי
-              ״סריקת קוד QR״, וסרקי את הקוד הזה:
-            </div>
+                <div style={step}>
+                  <b style={{ color: '#35423a' }}>שלב 2:</b> פתחי את האפליקציה, לחצי על ״+״ ובחרי
+                  ״סריקת קוד QR״, וסרקי את הקוד הזה:
+                </div>
 
-            <div style={{ textAlign: 'center', margin: '0 0 18px' }}>
-              {/* Supabase returns the QR as an inline SVG data-URI. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qr} alt="קוד QR לאימות דו־שלבי" width={200} height={200}
-                   style={{ border: '1px solid #dde5e1', borderRadius: 8, padding: 8 }} />
-              <div style={{ fontSize: 15, color: '#8aaa98', marginTop: 10 }}>
-                לא מצליחה לסרוק? הקלידי באפליקציה את הקוד הזה:
-                <div dir="ltr" style={{
-                  fontFamily: 'monospace', fontSize: 15, color: '#577066',
-                  background: '#f5f8f6', border: '1px solid #dde5e1', borderRadius: 6,
-                  padding: '8px 10px', marginTop: 6, wordBreak: 'break-all',
-                }}>{secret}</div>
-              </div>
-            </div>
+                <div style={{ textAlign: 'center', margin: '0 0 18px' }}>
+                  {/* Supabase returns the QR as an inline SVG data-URI. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={qr} alt="קוד QR לאימות דו־שלבי" width={200} height={200}
+                       style={{ border: '1px solid #dde5e1', borderRadius: 8, padding: 8 }} />
+                  <div style={{ fontSize: 15, color: '#8aaa98', marginTop: 10 }}>
+                    לא מצליחה לסרוק? הקלידי באפליקציה את הקוד הזה:
+                    <div dir="ltr" style={{
+                      fontFamily: 'monospace', fontSize: 15, color: '#577066',
+                      background: '#f5f8f6', border: '1px solid #dde5e1', borderRadius: 6,
+                      padding: '8px 10px', marginTop: 6, wordBreak: 'break-all',
+                    }}>{secret}</div>
+                  </div>
+                </div>
+              </>
+            )}
 
             <form onSubmit={handleVerify}>
               <div style={step}>
-                <b style={{ color: '#35423a' }}>שלב 3:</b> הזיני כאן את הקוד בן 6 הספרות
-                שמופיע באפליקציה:
+                {mode === 'verify' ? (
+                  <>פתחי את אפליקציית האימות בטלפון והזיני כאן את הקוד בן 6 הספרות:</>
+                ) : (
+                  <><b style={{ color: '#35423a' }}>שלב 3:</b> הזיני כאן את הקוד בן 6 הספרות
+                  שמופיע באפליקציה:</>
+                )}
               </div>
               <input
                 value={code}
@@ -195,7 +211,7 @@ export default function AdminMfa() {
                   cursor: loading || code.length !== 6 ? 'default' : 'pointer',
                 }}
               >
-                {loading ? 'מאמת…' : 'סיום והמשך לניהול →'}
+                {loading ? 'מאמת…' : mode === 'verify' ? 'כניסה לניהול →' : 'סיום והמשך לניהול →'}
               </button>
             </form>
           </>
