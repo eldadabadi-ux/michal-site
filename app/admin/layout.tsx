@@ -104,13 +104,16 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 
       {/* Bottom links */}
       <div style={{ padding: '14px 14px', borderTop: '1px solid rgba(217,221,227,0.1)' }}>
-        <Link href="/" target="_blank" style={{
+        {/* Plain anchor, not <Link>: Link prefetches the target, and while the
+            maintenance gate is on that prefetch fetches an RSC payload for '/'
+            and gets the 503 gate page instead, which derails the router. */}
+        <a href="/" target="_blank" rel="noopener" style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '12px 17px',
           borderRadius: 6, color: 'rgba(217,221,227,0.55)', textDecoration: 'none', fontSize: 17,
         }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
           <span>צפייה באתר</span>
-        </Link>
+        </a>
         <form action="/api/admin/logout" method="POST">
           <button type="submit" style={{
             width: '100%', padding: '12px 17px',

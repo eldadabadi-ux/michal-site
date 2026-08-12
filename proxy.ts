@@ -89,6 +89,11 @@ export async function proxy(request: NextRequest) {
       }
     }
 
+    // NOTE: an RSC request (a <Link> prefetch) gets this HTML too, which
+    // derails the client router. It cannot be special-cased here — Next strips
+    // both `_rsc` from the URL and the `rsc` header before Proxy runs. So the
+    // rule is on the other side: never point a <Link> at a gated route. The
+    // admin's "צפייה באתר" is a plain <a> for exactly this reason.
     return new Response(MAINTENANCE_HTML, {
       status: 503,
       headers: {
