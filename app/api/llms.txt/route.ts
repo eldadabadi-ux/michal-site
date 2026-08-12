@@ -1,34 +1,73 @@
 import { NextResponse } from 'next/server'
+import { getSiteSettings } from '@/lib/site-settings'
+import { getArticles } from '@/lib/articles'
 
+/**
+ * llms.txt — the site's summary for AI crawlers.
+ *
+ * Generated from site_settings and the published articles rather than a fixed
+ * string, so it can never drift from what the site actually says. The previous
+ * hardcoded version advertised a placeholder phone number and practice areas
+ * the office does not work in.
+ */
 export const dynamic = 'force-dynamic'
 
-const LLMS_TXT = `# משרד עו"ד מיכל גלר-עבאדי
+function siteUrl(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://michal-website.vercel.app').replace(/\/$/, '')
+}
 
-> ייעוץ משפטי מקצועי, אישי ומסור לפרטיים ועסקים בישראל.
+/** Collapses the multi-line/rich fields the CMS allows into one clean line. */
+function oneLine(s: string | undefined): string {
+  return (s ?? '').replace(/\s+/g, ' ').trim()
+}
 
-## שירותים עיקריים
+export async function GET() {
+  const base = siteUrl()
 
-- דיני מקרקעין: רכישה, מכירה, חוזים, רישום ותמ"א 38
-- דיני עסקים: הקמת חברות, חוזים מסחריים, ליטיגציה
-- דיני משפחה: גירושים, מזונות, משמורת, הסכמי ממון
-- צוואות וירושות: עריכת צוואות, צווי ירושה, ניהול עיזבון
-- ליטיגציה אזרחית: ייצוג בבתי משפט, גישור, בוררות
-- ייעוץ משפטי כללי: בדיקת חוזים, ייצוג מול רשויות
+  const [settings, articles] = await Promise.all([
+    getSiteSettings(),
+    getArticles().catch(() => []),
+  ])
 
-## יצירת קשר
+  const brand = oneLine(settings.footer_brand_name) || 'משרד עו"ד מיכל גלר-עבאדי'
+  const summary = oneLine(settings.hero_subtitle) || oneLine(settings.office_description)
 
-- טלפון: XX-XXXXXXX
-- דוא"ל: michal@law.co.il
-- כתובת: רחוב הרצל 1, תל אביב
-- שעות קבלה: ראשון–חמישי 09:00–18:00
+  const lines: string[] = [`# ${brand}`, '']
+  if (summary) lines.push(`> ${summary}`, '')
 
-## Optional
+  const services = (settings.services ?? []).filter(s => oneLine(s.t))
+  if (services.length) {
+    lines.push('## תחומי עיסוק', '')
+    for (const s of services) {
+      const detail = oneLine(s.desc) || oneLine(s.sub)
+      lines.push(detail ? `- ${oneLine(s.t)}: ${detail}` : `- ${oneLine(s.t)}`)
+    }
+    lines.push('')
+  }
 
-- [llms-full.txt](/llms-full.txt)
-`
+  const about = oneLine(settings.about_text1)
+  if (about) lines.push('## אודות', '', about, '')
 
-export function GET() {
-  return new NextResponse(LLMS_TXT, {
+  if (articles.length) {
+    lines.push('## מאמרים', '')
+    for (const a of articles) {
+      const excerpt = oneLine(a.excerpt)
+      const title = oneLine(a.title)
+      lines.push(excerpt
+        ? `- [${title}](${base}/blog/${a.slug}): ${excerpt}`
+        : `- [${title}](${base}/blog/${a.slug})`)
+    }
+    lines.push('')
+  }
+
+  lines.push('## יצירת קשר', '')
+  if (oneLine(settings.contact_phone))   lines.push(`- טלפון: ${oneLine(settings.contact_phone)}`)
+  if (oneLine(settings.contact_email))   lines.push(`- דוא"ל: ${oneLine(settings.contact_email)}`)
+  if (oneLine(settings.contact_address)) lines.push(`- כתובת: ${oneLine(settings.contact_address)}`)
+  if (oneLine(settings.contact_hours))   lines.push(`- שעות קבלה: ${oneLine(settings.contact_hours)}`)
+  lines.push('', `- טופס יצירת קשר: ${base}/contact`, '')
+
+  return new NextResponse(lines.join('\n'), {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'public, max-age=3600',
