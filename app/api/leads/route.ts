@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getSiteSettings } from '@/lib/site-settings'
+import { sendLeadNotification } from '@/lib/lead-email'
 
 // Service-role key bypasses RLS — safe for server-side use only
 const supabase = createClient(
@@ -85,15 +87,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'database error' }, { status: 500 })
     }
 
-    // Fire-and-forget: trigger email auto-reply via Cloudflare Worker
-    const workerUrl = process.env.LEAD_NOTIFY_WORKER_URL
-    if (workerUrl) {
-      fetch(workerUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId: MICHAL_TENANT_ID, name, email, subject }),
-      }).catch(() => {})
-    }
+    // Notify the office. Awaited rather than fire-and-forget because a
+    // serverless invocation can be frozen the moment the response is returned,
+    // which would drop the mail; sendLeadNotification never throws and returns
+    // immediately when the mailer is unconfigured.
+    const settings = await getSiteSettings().catch(() => null)
+    await sendLeadNotification(
+      { name, email, phone, subject, message },
+      settings?.contact_email ?? ''
+    )
 
     return NextResponse.json({ ok: true })
   } catch {
