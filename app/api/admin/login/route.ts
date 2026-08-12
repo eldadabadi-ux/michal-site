@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   )
-  const { data: prof } = await admin.from('profiles').select('role, is_superadmin').eq('id', signIn.user.id).single()
-  const isAdmin = prof?.is_superadmin === true || prof?.role === 'admin' || prof?.role === 'superadmin'
+  const { data: prof } = await admin.from('profiles').select('role').eq('id', signIn.user.id).single()
+  const isAdmin = prof?.role === 'admin' || prof?.role === 'superadmin'
   if (!isAdmin) {
     await supabase.auth.signOut()
     return NextResponse.json({ error: 'not authorized' }, { status: 403 })
@@ -40,10 +40,11 @@ export async function POST(req: NextRequest) {
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
   if (aal?.currentLevel !== 'aal2') {
     if (aal?.nextLevel !== 'aal2') {
-      // No factor enrolled — admin must enrol MFA (do it once via the CRM /mfa page,
-      // same Supabase project) before admin access is granted.
-      await supabase.auth.signOut()
-      return NextResponse.json({ error: 'mfa_enrollment_required' }, { status: 403 })
+      // No verified factor yet. Keep the aal1 session alive so the admin can
+      // enrol at /admin/mfa — the proxy pins them to that page, and every
+      // /api/admin/* route still requires aal2 (lib/admin-guard.ts), so this
+      // session cannot reach any admin data before enrolment completes.
+      return NextResponse.json({ enroll: true })
     }
     if (!code) {
       return NextResponse.json({ mfa: true }) // client should prompt for the TOTP code

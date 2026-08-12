@@ -26,13 +26,13 @@ export default function AdminLogin() {
       window.location.href = '/admin/content' // full reload so middleware sees the session
       return
     }
+    if (res.ok && data.enroll) {
+      window.location.href = '/admin/mfa' // first login — set up two-factor
+      return
+    }
     if (res.ok && data.mfa) {
       setNeedMfa(true)
       setError('הזיני את הקוד מאפליקציית האימות')
-      return
-    }
-    if (data.error === 'mfa_enrollment_required') {
-      setError('יש להפעיל אימות דו-שלבי בחשבון לפני כניסה לניהול')
       return
     }
     if (data.error === 'not authorized') {

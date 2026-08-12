@@ -27,5 +27,15 @@ export async function updateSession(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  return { supabaseResponse, user }
+
+  // AAL is read from the access-token claims (no extra network round-trip), so
+  // the proxy can cheaply tell an MFA-complete session (aal2) from one that
+  // still has to enrol or verify a factor.
+  let aal: string | null = null
+  if (user) {
+    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    aal = data?.currentLevel ?? null
+  }
+
+  return { supabaseResponse, user, aal }
 }

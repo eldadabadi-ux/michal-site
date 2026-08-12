@@ -45,9 +45,14 @@ export async function proxy(request: NextRequest) {
 
   if (pathname.startsWith('/admin')) {
     if (pathname === '/admin/login') return NextResponse.next()
-    const { supabaseResponse, user } = await updateSession(request)
+    const { supabaseResponse, user, aal } = await updateSession(request)
     if (!user) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+    // Signed in but MFA not completed — the only page reachable is the
+    // enrolment/verification screen itself.
+    if (pathname !== '/admin/mfa' && aal !== 'aal2') {
+      return NextResponse.redirect(new URL('/admin/mfa', request.url))
     }
     return supabaseResponse
   }

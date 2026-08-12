@@ -26,8 +26,8 @@ export async function requireAdmin() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   )
-  const { data: prof } = await admin.from('profiles').select('role, is_superadmin').eq('id', user.id).single()
-  const isAdmin = prof?.is_superadmin === true || prof?.role === 'admin' || prof?.role === 'superadmin'
+  const { data: prof } = await admin.from('profiles').select('role').eq('id', user.id).single()
+  const isAdmin = prof?.role === 'admin' || prof?.role === 'superadmin'
   if (!isAdmin) {
     return { ok: false as const, res: NextResponse.json({ error: 'forbidden' }, { status: 403 }) }
   }
