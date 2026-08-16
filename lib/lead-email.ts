@@ -1,18 +1,22 @@
 /**
  * lib/lead-email.ts — notifies the office when a lead arrives.
  *
- * Deliberately best-effort: a mail failure must never cost us the lead, which
- * is already committed to the database by the time this runs. Every path
- * returns instead of throwing, and an unconfigured mailer is a no-op rather
- * than an error.
+ * Sends through Microsoft Graph, inside the tenant the office already runs its
+ * mail in, so enquiry data reaches no new sub-processor. Auth is an Entra app
+ * registration using client credentials: the mailbox password is never
+ * involved, and the app's Mail.Send permission is expected to be scoped to the
+ * single sender mailbox by an application access policy (without that scoping
+ * the permission covers every mailbox in the tenant).
+ *
+ * Best-effort by design: the lead is already committed to the database before
+ * this runs, so every failure path logs and returns instead of throwing.
  *
  * Config:
- *   RESEND_API_KEY    required — without it nothing is sent
- *   LEADS_FROM_EMAIL  sender, must sit on a Resend-verified domain
- *                     (e.g. "אתר מיכל גלר-עבאדי <noreply@send.example.co.il>")
- *   LEADS_NOTIFY_TO   optional override; otherwise site_settings.contact_email
+ *   MS_TENANT_ID / MS_CLIENT_ID / MS_CLIENT_SECRET  the Entra app registration
+ *   MS_SENDER_UPN     mailbox to send as, e.g. michal@gellerabadi.co.il
+ *   LEADS_NOTIFY_TO   optional recipient override; otherwise the panel's
+ *                     site_settings.contact_email is used
  */
-import { Resend } from 'resend'
 
 export type LeadPayload = {
   name: string
@@ -43,17 +47,68 @@ function row(label: string, value: string | null | undefined): string {
   </tr>`
 }
 
+/**
+ * Client-credential token, cached in module scope. A warm serverless instance
+ * handling several enquiries reuses one token instead of re-authenticating per
+ * send; the 60s margin keeps a token from expiring mid-request.
+ */
+let cachedToken: { value: string; expiresAt: number } | null = null
+
+async function getAccessToken(tenantId: string, clientId: string, clientSecret: string): Promise<string | null> {
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.value
+
+  try {
+    const res = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        scope: 'https://graph.microsoft.com/.default',
+        grant_type: 'client_credentials',
+      }),
+    })
+
+    if (!res.ok) {
+      // Body carries Entra's error code (bad secret, missing consent, …) and no
+      // credentials, so it is safe and useful to log.
+      console.error('[lead-email] token request failed:', res.status, await res.text().catch(() => ''))
+      return null
+    }
+
+    const data = await res.json()
+    if (!data?.access_token) {
+      console.error('[lead-email] token response had no access_token')
+      return null
+    }
+
+    cachedToken = {
+      value: data.access_token,
+      expiresAt: Date.now() + (Number(data.expires_in) || 3600) * 1000,
+    }
+    return cachedToken.value
+  } catch (e) {
+    console.error('[lead-email] token request threw:', e)
+    return null
+  }
+}
+
 export async function sendLeadNotification(lead: LeadPayload, fallbackTo: string): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.LEADS_FROM_EMAIL
+  const tenantId = process.env.MS_TENANT_ID
+  const clientId = process.env.MS_CLIENT_ID
+  const clientSecret = process.env.MS_CLIENT_SECRET
+  const sender = process.env.MS_SENDER_UPN
   const to = process.env.LEADS_NOTIFY_TO || fallbackTo
 
-  // Not configured yet — stay silent rather than logging on every submission.
-  if (!apiKey || !from) return
+  // Not wired up yet — stay silent rather than logging on every submission.
+  if (!tenantId || !clientId || !clientSecret || !sender) return
   if (!looksLikeEmail(to)) {
     console.error('[lead-email] no valid recipient; set LEADS_NOTIFY_TO or contact_email')
     return
   }
+
+  const token = await getAccessToken(tenantId, clientId, clientSecret)
+  if (!token) return
 
   const subject = lead.subject?.trim()
     ? `פנייה חדשה מהאתר: ${lead.subject.trim()}`
@@ -75,28 +130,35 @@ export async function sendLeadNotification(lead: LeadPayload, fallbackTo: string
   </div>
 </div>`
 
-  const text = [
-    'פנייה חדשה מהאתר',
-    '',
-    `שם: ${lead.name}`,
-    lead.phone   ? `טלפון: ${lead.phone}` : '',
-    lead.email   ? `דוא"ל: ${lead.email}` : '',
-    lead.subject ? `נושא: ${lead.subject}` : '',
-    lead.message ? `\nהודעה:\n${lead.message}` : '',
-  ].filter(Boolean).join('\n')
+  const message: Record<string, unknown> = {
+    subject,
+    body: { contentType: 'HTML', content: html },
+    toRecipients: [{ emailAddress: { address: to } }],
+  }
+  // Replying to the notification then goes straight back to the enquirer.
+  if (looksLikeEmail(lead.email)) {
+    message.replyTo = [{ emailAddress: { address: lead.email } }]
+  }
 
   try {
-    const { error } = await new Resend(apiKey).emails.send({
-      from,
-      to,
-      subject,
-      html,
-      text,
-      // Replying to the notification goes straight back to the person.
-      ...(looksLikeEmail(lead.email) ? { replyTo: lead.email } : {}),
-    })
-    if (error) console.error('[lead-email] send failed:', error)
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(sender)}/sendMail`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        // Keep the office's Sent Items free of machine-generated notifications.
+        body: JSON.stringify({ message, saveToSentItems: false }),
+      }
+    )
+
+    // Graph acknowledges with 202; delivery itself happens afterwards.
+    if (res.status !== 202) {
+      console.error('[lead-email] sendMail failed:', res.status, await res.text().catch(() => ''))
+    }
   } catch (e) {
-    console.error('[lead-email] send threw:', e)
+    console.error('[lead-email] sendMail threw:', e)
   }
 }
