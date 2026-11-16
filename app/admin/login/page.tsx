@@ -116,6 +116,12 @@ export default function AdminLogin() {
 
           {error && <div style={{ fontSize: 16, color: '#c0392b', marginTop: 12 }}>{error}</div>}
 
+          <div style={{ textAlign: 'left', marginTop: 10 }}>
+            <a href="/admin/forgot-password" style={{ fontSize: 15, color: '#8aaa98', textDecoration: 'none' }}>
+              שכחתי סיסמה
+            </a>
+          </div>
+
           <button
             type="submit"
             disabled={loading}

@@ -52,7 +52,14 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith('/admin')) {
-    if (pathname === '/admin/login') return NextResponse.next()
+    // Pages reachable without a session: login and the self-service
+    // password-reset pair (A.5.17). The reset API routes validate their own
+    // single-use recovery token.
+    if (
+      pathname === '/admin/login' ||
+      pathname === '/admin/forgot-password' ||
+      pathname === '/admin/reset-password'
+    ) return NextResponse.next()
     const { supabaseResponse, user, aal } = await updateSession(request)
     if (!user) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
