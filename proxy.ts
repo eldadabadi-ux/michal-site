@@ -60,13 +60,15 @@ export async function proxy(request: NextRequest) {
       pathname === '/admin/forgot-password' ||
       pathname === '/admin/reset-password'
     ) return NextResponse.next()
-    const { supabaseResponse, user, aal } = await updateSession(request)
+    const { supabaseResponse, user, aal, mfaRequired } = await updateSession(request)
     if (!user) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
-    // Signed in but MFA not completed — the only page reachable is the
-    // enrolment/verification screen itself.
-    if (pathname !== '/admin/mfa' && aal !== 'aal2') {
+    // MFA is enforced for accounts that have enrolled a factor, and not imposed
+    // on accounts that have not. An enrolled admin whose session is still aal1
+    // can reach nothing but the verification screen. /admin/mfa itself stays
+    // open either way, so an admin without a factor can still choose to add one.
+    if (pathname !== '/admin/mfa' && mfaRequired && aal !== 'aal2') {
       return NextResponse.redirect(new URL('/admin/mfa', request.url))
     }
     return supabaseResponse
@@ -85,8 +87,8 @@ export async function proxy(request: NextRequest) {
       .some(c => c.name.startsWith('sb-') && c.name.includes('auth-token'))
 
     if (hasSessionCookie) {
-      const { user, aal } = await updateSession(request)
-      if (user && aal === 'aal2') {
+      const { user, aal, mfaRequired } = await updateSession(request)
+      if (user && (!mfaRequired || aal === 'aal2')) {
         // Flag the request so the site layout can show a "hidden from the
         // public" banner — otherwise the preview is indistinguishable from
         // the site being live again.

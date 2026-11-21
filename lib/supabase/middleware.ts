@@ -28,14 +28,19 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // AAL is read from the access-token claims (no extra network round-trip), so
-  // the proxy can cheaply tell an MFA-complete session (aal2) from one that
-  // still has to enrol or verify a factor.
+  // AAL is read from the access-token claims (no extra network round-trip).
+  //
+  // `currentLevel` is what this session has reached; `nextLevel` is what it
+  // COULD reach, which is 'aal2' only when the account has a verified factor.
+  // That difference is the whole policy: MFA is required of an account that has
+  // enrolled one, and not imposed on an account that has not.
   let aal: string | null = null
+  let mfaRequired = false
   if (user) {
     const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     aal = data?.currentLevel ?? null
+    mfaRequired = data?.nextLevel === 'aal2'
   }
 
-  return { supabaseResponse, user, aal }
+  return { supabaseResponse, user, aal, mfaRequired }
 }

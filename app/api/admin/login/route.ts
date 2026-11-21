@@ -36,16 +36,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'not authorized' }, { status: 403 })
   }
 
-  // MFA (AAL2) step-up.
+  // MFA (AAL2) step-up, for accounts that have enrolled a factor.
+  //
+  // `nextLevel === 'aal2'` means a verified factor exists, so the code is
+  // demanded. An account with no factor signs in on password alone and may add
+  // a factor later at /admin/mfa. Enrolment is no longer forced at first login:
+  // the panel's users are a small, named set, and an authenticator app they
+  // cannot operate locks them out of their own site entirely.
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (aal?.currentLevel !== 'aal2') {
-    if (aal?.nextLevel !== 'aal2') {
-      // No verified factor yet. Keep the aal1 session alive so the admin can
-      // enrol at /admin/mfa — the proxy pins them to that page, and every
-      // /api/admin/* route still requires aal2 (lib/admin-guard.ts), so this
-      // session cannot reach any admin data before enrolment completes.
-      return NextResponse.json({ enroll: true })
-    }
+  if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
     if (!code) {
       return NextResponse.json({ mfa: true }) // client should prompt for the TOTP code
     }

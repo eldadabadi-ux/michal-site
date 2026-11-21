@@ -26,10 +26,9 @@ export default function AdminLogin() {
       window.location.href = '/admin/content' // full reload so middleware sees the session
       return
     }
-    if (res.ok && data.enroll) {
-      window.location.href = '/admin/mfa' // first login — set up two-factor
-      return
-    }
+    // No `enroll` branch: two-factor is no longer forced at first login. An
+    // account that has enrolled a factor still gets the `mfa` prompt below;
+    // one that has not signs straight in and can add a factor at /admin/mfa.
     if (res.ok && data.mfa) {
       setNeedMfa(true)
       setError('הזיני את הקוד מאפליקציית האימות')

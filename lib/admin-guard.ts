@@ -39,9 +39,15 @@ export async function requireAdmin() {
   const auth = await authenticateAdmin()
   if (!auth.ok) return auth
 
-  // MFA (AAL2) enforcement.
+  // MFA (AAL2) enforcement, for accounts that have enrolled a factor.
+  //
+  // `nextLevel === 'aal2'` means this account HAS a verified factor, so a
+  // session that has not completed the challenge is rejected. An account with
+  // no factor reports nextLevel 'aal1' and passes on password alone — the
+  // policy is "verify the second factor you registered", not "everyone must
+  // register one". Keep this in step with the same rule in proxy.ts.
   const { data: aal } = await auth.supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (aal?.currentLevel !== 'aal2') {
+  if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
     return { ok: false as const, res: NextResponse.json({ error: 'mfa_required' }, { status: 403 }) }
   }
 
