@@ -19,6 +19,11 @@ workers_dev = true
 binding = "ASSETS"
 directory = ".open-next/assets"
 
+# Workers Logs — keeps exceptions searchable in the dashboard after the fact,
+# instead of only while `wrangler tail` happens to be running.
+[observability]
+enabled = true
+
 # next/image optimisation via Cloudflare Images. Without it OpenNext serves
 # the original image unresized.
 [images]

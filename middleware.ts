@@ -48,7 +48,7 @@ const MAINTENANCE_HTML = `<!doctype html>
  * (Replaces the previous forgeable `admin_token === 'authenticated'` cookie.)
  * Role + MFA(AAL2) are enforced in the admin API routes via lib/admin-guard.ts.
  */
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith('/admin')) {
