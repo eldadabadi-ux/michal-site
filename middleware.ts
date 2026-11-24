@@ -51,6 +51,15 @@ const MAINTENANCE_HTML = `<!doctype html>
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // One canonical host. www is attached to the Worker only so that old links
+  // keep working; it answers with a permanent redirect to the bare domain.
+  if (request.nextUrl.hostname === 'www.gellerabadi.co.il') {
+    const url = request.nextUrl.clone()
+    url.hostname = 'gellerabadi.co.il'
+    url.port = ''
+    return NextResponse.redirect(url, 308)
+  }
+
   if (pathname.startsWith('/admin')) {
     // Pages reachable without a session: login and the self-service
     // password-reset pair (A.5.17). The reset API routes validate their own

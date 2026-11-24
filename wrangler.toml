@@ -15,6 +15,12 @@ compatibility_flags = ["nodejs_compat"]
 main = ".open-next/worker.js"
 workers_dev = true
 
+# The production domain. www only redirects to the bare domain (middleware.ts).
+routes = [
+  { pattern = "gellerabadi.co.il", custom_domain = true },
+  { pattern = "www.gellerabadi.co.il", custom_domain = true },
+]
+
 [assets]
 binding = "ASSETS"
 directory = ".open-next/assets"
