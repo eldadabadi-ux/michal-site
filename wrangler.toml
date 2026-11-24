@@ -1,8 +1,25 @@
-name = "michal-law"
+# Cloudflare Worker — gellerabadi.co.il (Next.js via OpenNext)
+#
+# Named gellerabadi-site, not michal-law: "michal-law" is the CRM's SuperAdmin
+# Pages project, and sharing the name made it unclear which one a deploy hit.
+#
+# Secrets (set with `wrangler secret put`, never in this file):
+#   SUPABASE_SERVICE_ROLE_KEY, MICHAL_TENANT_ID,
+#   MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MS_SENDER_UPN, LEADS_NOTIFY_TO,
+#   TURNSTILE_SECRET_KEY (optional)
+# NEXT_PUBLIC_* values are inlined at build time from .env.local.
+
+name = "gellerabadi-site"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 main = ".open-next/worker.js"
+workers_dev = true
 
 [assets]
 binding = "ASSETS"
 directory = ".open-next/assets"
+
+# next/image optimisation via Cloudflare Images. Without it OpenNext serves
+# the original image unresized.
+[images]
+binding = "IMAGES"
